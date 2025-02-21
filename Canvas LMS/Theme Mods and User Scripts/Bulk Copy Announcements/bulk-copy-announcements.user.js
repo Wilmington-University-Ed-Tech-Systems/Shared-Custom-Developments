@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bulk Copy Announcements
-// @namespace    https://github.com/Wilmington-University-Ed-Tech-Systems/Shared-Custom-Developments/Canvas-LMS/Theme-Mods-and-User-Scripts/Bulk-Copy-Announcements
-// @version      1.0.0
+// @namespace    https://github.com/Wilmington-University-Ed-Tech-Systems/Shared-Custom-Developments/tree/main/Canvas%20LMS/Theme%20Mods%20and%20User%20Scripts/Bulk%20Copy%20Announcements
+// @version      2.0.0
 // @description  Adds ability to bulk copy announcements
 // @author       James Sekcienski, Ed Tech Systems, Wilmington University
 // @match      https://*.instructure.com/courses/*/announcements
@@ -48,6 +48,10 @@
       addMutationObserverForAnnouncementRows();
     });
   }
+
+  // Progress Tracking Variables
+  let numOfSteps = 0;
+  let completedSteps = 0;
 
   /*
     Checks if an element has been added to the document that meets one of the given
@@ -461,7 +465,7 @@
 
     const coursesSection = document.createElement("section");
     const coursesHeading = document.createElement("h3");
-    coursesHeading.innerText = "Select Course to Copy To";
+    coursesHeading.innerText = "Select Course(s) to Copy To";
     const coursesWrapper = document.createElement("div");
     coursesWrapper.id = "wu-copy-announcement-modal-courses";
     coursesWrapper.classList.add("ic-Form-control", "ic-Form-control--radio");
@@ -571,6 +575,7 @@
     settingsWrapper.append(delayedPostingWrapper);
 
     const delayedPostingTimeWrapper = document.createElement("div");
+    delayedPostingTimeWrapper.style.marginLeft = "2em";
     delayedPostingTimeWrapper.id = "wu-delayed-posting-entry";
     delayedPostingTimeWrapper.classList.add("ic-Form-control");
     const delayedPostingTimeInput = document.createElement("input");
@@ -668,16 +673,16 @@
       copyButton.style.display = "none";
       cancelButton.style.display = "none";
 
-      const destinationCourseId = document.querySelector(
-        "input[name='destination-course-radio-buttons']:checked"
-      ).value;
+      const destinationCourseIds = [
+        ...document.querySelectorAll("input.wu-copy-to-course:checked"),
+      ].map((input) => input.value);
 
       const announcementSettings = getCopyAnnouncementSettings();
 
-      await copyAnnouncementsToCourse(
+      await copyAnnouncementsToCourses(
         announcementsToCopy,
         sourceCourseId,
-        destinationCourseId,
+        destinationCourseIds,
         announcementSettings
       );
 
@@ -713,11 +718,7 @@
 
     const minDateTime = getMinDateTimeString();
 
-    if (
-      !document.querySelector(
-        "input[name='destination-course-radio-buttons']:checked"
-      )
-    ) {
+    if (!document.querySelector("input.wu-copy-to-course:checked")) {
       alert(
         "You need to select a course to copy to where you are an active teacher."
       );
@@ -1005,15 +1006,15 @@
   }
 
   /**
-   * Adds a radio button option based on the given course to the given wrapper
+   * Adds a checkbox input based on the given course to the given wrapper
    */
   function addCourseOption(wrapper, course) {
     const courseId = course.id;
     const isPublished = course.workflow_state == "available";
     wrapper.innerHTML += `
-      <div class="ic-Radio">
-        <input id="radio-course-${courseId}" type="radio" value="${courseId}" data-is-published="${isPublished}" name="destination-course-radio-buttons">
-        <label for="radio-course-${courseId}" class="ic-Label"> <strong><a href='/courses/${courseId}' target='_blank'><i class='icon-solid ${
+      <div class="ic-Form-control ic-Form-control--checkbox" style="margin-left: 0.25rem">
+        <input id="checkbox-course-${courseId}" class="wu-copy-to-course" type="checkbox" value="${courseId}" data-is-published="${isPublished}">
+        <label for="checkbox-course-${courseId}" class="ic-Label"> <strong><a href='/courses/${courseId}' target='_blank'><i class='icon-solid ${
       isPublished ? "icon-publish" : "icon-unpublished"
     }' title='${
       isPublished ? "published course" : "unpublished course"
@@ -1022,6 +1023,82 @@
     }</em></label>
       </div>
     `;
+  }
+
+  async function copyAnnouncementsToCourses(
+    announcements,
+    sourceCourseId,
+    destinationCourseIds,
+    announcementSettings
+  ) {
+    updateLoadingMessage("clear");
+    let courseCount = 0;
+    const numOfCourses = destinationCourseIds.length;
+
+    const progressBar = document.getElementById("wu-copy-progress-bar");
+    numOfSteps = announcements.length * 3 * numOfCourses + 1;
+    completedSteps = 0;
+
+    const pageIdsToCopy = [];
+    const pageTitles = {};
+    const permissions = await getCoursePermissions(sourceCourseId);
+
+    const announcementsWithEmbeddedLtiContent = [
+      ...announcements.filter((announcement) =>
+        checkForSpecialLtiEmbed(announcement)
+      ),
+    ];
+    const hasEmbeddedLtiContent =
+      announcementsWithEmbeddedLtiContent.length > 0;
+    if (hasEmbeddedLtiContent && permissions?.manage_wiki_create) {
+      updateLoadingMessage(
+        "info",
+        `Completing set-up to handle embedded LTI content`
+      );
+      await handleSetupForCopyProcessForLtiEmbeddedContent(
+        announcements,
+        sourceCourseId,
+        pageIdsToCopy,
+        pageTitles
+      );
+      numOfSteps += pageIdsToCopy.length * numOfCourses;
+    } else if (hasEmbeddedLtiContent) {
+      updateLoadingMessage(
+        "error",
+        "Missing required permission to perform special copy process. You will need to fix the embedded content in the copied announcement."
+      );
+    }
+
+    for (const destinationCourseId of destinationCourseIds) {
+      courseCount++;
+      updateLoadingMessage(
+        "info",
+        `Preparing to copy announcement(s) to course ${courseCount} of ${numOfCourses}`
+      );
+      await copyAnnouncementsToCourse(
+        announcements,
+        sourceCourseId,
+        destinationCourseId,
+        announcementSettings,
+        pageIdsToCopy,
+        pageTitles,
+        progressBar,
+        permissions
+      );
+      updateLoadingMessage(
+        "info",
+        `Finished copying announcement(s) to course ${courseCount} of ${numOfCourses}`
+      );
+    }
+
+    await deletePages(sourceCourseId, pageIdsToCopy);
+    completedSteps++;
+    progressBar.style.width = `100%`;
+
+    updateLoadingMessage(
+      "info",
+      "Announcement copy process is complete. You may now select another course(s) to copy these same announcements to or close this dialog."
+    );
   }
 
   /**
@@ -1039,18 +1116,14 @@
     announcements,
     sourceCourseId,
     destinationCourseId,
-    announcementSettings
+    announcementSettings,
+    pageIdsToCopy,
+    pageTitles,
+    progressBar,
+    permissions
   ) {
-    updateLoadingMessage("clear");
-    const progressBar = document.getElementById("wu-copy-progress-bar");
-    let numOfSteps = announcements.length * 3;
-    let completedSteps = 0;
-    const BASE_URL = document.location.hostname;
     let announcementNum = 0;
     const totalAnnouncements = announcements.length;
-    const pageIdsToCopy = [];
-    const pageTitles = {};
-    const permissions = await getCoursePermissions(sourceCourseId);
 
     for (const announcement of announcements) {
       await copyAnnouncementToCourse(
@@ -1069,23 +1142,16 @@
       );
     }
 
-    if (permissions?.manage_wiki_create) {
+    if (pageIdsToCopy.length > 0 && permissions?.manage_wiki_create) {
       // Perform Special Copy Process and Clean-Up for LTI Embedded Content
       await handleCopyStepsForLtiEmbeddedContent(
         progressBar,
-        completedSteps,
-        numOfSteps,
         sourceCourseId,
         destinationCourseId,
         pageIdsToCopy,
         pageTitles
       );
     }
-
-    updateLoadingMessage(
-      "info",
-      "Announcement copy process is complete. You may now select another course to copy these same announcements to or close this dialog."
-    );
   }
 
   async function copyAnnouncementToCourse(
@@ -1094,13 +1160,8 @@
     destinationCourseId,
     announcementSettings,
     progressBar,
-    completedSteps,
-    numOfSteps,
     announcementNum,
-    totalAnnouncements,
-    permissions,
-    pageIdsToCopy,
-    pageTitles
+    totalAnnouncements
   ) {
     announcementNum++;
     updateLoadingMessage(
@@ -1115,30 +1176,6 @@
 
     let updatedMessage = announcement.message;
 
-    // Check for new LTI embeds
-    if (checkForSpecialLtiEmbed(announcement)) {
-      updateLoadingMessage("info", "Found special embed of LTI content");
-      if (permissions?.manage_wiki_create) {
-        updateLoadingMessage(
-          "info",
-          "Preparing special copy process to handle updating the special embed in the selected course"
-        );
-        await handleSetupForCopyProcessForLtiEmbeddedContent(
-          announcement,
-          sourceCourseId,
-          updatedMessage,
-          pageIdsToCopy,
-          pageTitles
-        );
-        numOfSteps++;
-      } else {
-        updateLoadingMessage(
-          "error",
-          "Missing required permission to perform special copy process. You will need to fix the embedded content in the copied announcement."
-        );
-      }
-    }
-
     // Check for attached and/or linked files
     const attachments = announcement.attachments;
     const hasEmbeddedFiles = announcement.message.includes(
@@ -1147,8 +1184,6 @@
     if (attachments.length > 0 || hasEmbeddedFiles) {
       let copiedAnnouncementsFolder =
         await getOrCreateCopiedAnnouncementsFolder(destinationCourseId);
-      console.log(`Copied Announcements folder`);
-      console.log(copiedAnnouncementsFolder);
 
       const folderId = copiedAnnouncementsFolder.id;
 
@@ -1215,16 +1250,21 @@
   }
 
   async function handleSetupForCopyProcessForLtiEmbeddedContent(
-    announcement,
+    announcements,
     sourceCourseId,
-    message,
     pageIdsToCopy,
     pageTitles
   ) {
-    const title = `${pageTitlePrefixForSpecialCopyProcess} ${announcement.title}`;
-    const pageToCopy = await createPage(sourceCourseId, title, message);
-    pageIdsToCopy.push(pageToCopy.page_id);
-    pageTitles[pageToCopy.page_id] = title;
+    for (const announcement of announcements) {
+      const title = `${pageTitlePrefixForSpecialCopyProcess} ${announcement.title}`;
+      const pageToCopy = await createPage(
+        sourceCourseId,
+        title,
+        announcement.message
+      );
+      pageIdsToCopy.push(pageToCopy.page_id);
+      pageTitles[pageToCopy.page_id] = title;
+    }
   }
 
   async function copyAttachmentsAndUpdateMessage(
@@ -1324,13 +1364,15 @@
 
   async function handleCopyStepsForLtiEmbeddedContent(
     progressBar,
-    completedSteps,
-    numOfSteps,
     sourceCourseId,
     destinationCourseId,
     pageIdsToCopy,
     pageTitles
   ) {
+    if (pageIdsToCopy.length == 0) {
+      return;
+    }
+
     updateLoadingMessage(
       "info",
       `Beginning special copy process for announcements with a special embed of LTI content`
@@ -1368,7 +1410,6 @@
         `Beginning special copy process clean-up ${cleanupStep} of ${totalCleanupsNeeded}.`
       );
 
-      await deletePage(sourceCourseId, pageId);
       if (status == "completed") {
         const copiedPage = await getCopiedPage(destinationCourseId, pageTitle);
         await deletePage(destinationCourseId, copiedPage.page_id);
@@ -1383,6 +1424,12 @@
       progressBar.style.width = `${Math.floor(
         (completedSteps * 100) / numOfSteps
       )}%`;
+    }
+  }
+
+  async function deletePages(courseId, pageIds) {
+    for (const pageId of pageIds) {
+      await deletePage(courseId, pageId);
     }
   }
 
@@ -1532,8 +1579,7 @@
       .then((response) => response.json())
       .then(async (data) => {
         if (data.errors) {
-          console.log(`Created Copied Announcements folder`);
-          return await createFolder(destinationCourseId);
+          return await createFolder(courseId);
         } else {
           return data.pop();
         }

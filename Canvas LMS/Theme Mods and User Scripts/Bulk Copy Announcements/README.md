@@ -6,7 +6,6 @@ Documentation for how our teachers can use this feature can be found at [Copy An
 
 ## Notes for Users
 
-- This currently only supports selecting one to copy to at a time. However, when the process completes, you can select another course and it will copy those same announcements with the same settings to the newly selected course.
 - The setting options that are shown will apply to all selected announcements for copies. If you don't want the announcements to post immediately and potentially send notifications, be sure to set a delayed post date/time. For now, if different date/times are needed you will need to copy the announcements one at a time or copy them in bulk and then edit the date/time for the copied that should be different.
 - There are some variables towards the beginning of the code that are used to configure some styles/naming conventions. You can update these as desired, but it isn't required.
 - Only courses where you are an active Teacher will show. This is also because the announcements will show the person making the copies as the author of the announcements.
