@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bulk Copy Announcements
 // @namespace    https://github.com/Wilmington-University-Ed-Tech-Systems/Shared-Custom-Developments/tree/main/Canvas%20LMS/Theme%20Mods%20and%20User%20Scripts/Bulk%20Copy%20Announcements
-// @version      2.0.0
+// @version      2.1.0
 // @description  Adds ability to bulk copy announcements
 // @author       James Sekcienski, Ed Tech Systems, Wilmington University
 // @match      https://*.instructure.com/courses/*/announcements
@@ -468,7 +468,7 @@
     coursesHeading.innerText = "Select Course(s) to Copy To";
     const coursesWrapper = document.createElement("div");
     coursesWrapper.id = "wu-copy-announcement-modal-courses";
-    coursesWrapper.classList.add("ic-Form-control", "ic-Form-control--radio");
+    coursesWrapper.classList.add("ic-Form-control");
     coursesWrapper.style.overflow = "auto";
     coursesWrapper.style.maxHeight = "200px";
     coursesWrapper.style.borderTop = `1px solid ${headerBorderColor}`;
@@ -685,6 +685,8 @@
         destinationCourseIds,
         announcementSettings
       );
+
+      clearAndHideSelectedCourseOptions();
 
       setTimeout(() => {
         alert("Announcements copied");
@@ -1023,6 +1025,24 @@
     }</em></label>
       </div>
     `;
+  }
+
+  /**
+   * This unchecks all the course options to copy to and
+   * then hides them.
+   *
+   * NOTE: This is used after the copy process to avoid
+   * accidentally copying the same announcements to the
+   * same course(s) after the copy process completes.
+   */
+  function clearAndHideSelectedCourseOptions() {
+    const checkedCourseCheckboxes = [
+      ...document.querySelectorAll("input.wu-copy-to-course:checked"),
+    ];
+    for (const checkbox of checkedCourseCheckboxes) {
+      checkbox.checked = false;
+      checkbox.parentElement.style.display = "none";
+    }
   }
 
   async function copyAnnouncementsToCourses(
