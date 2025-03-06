@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bulk Copy Announcements
 // @namespace    https://github.com/Wilmington-University-Ed-Tech-Systems/Shared-Custom-Developments/tree/main/Canvas%20LMS/Theme%20Mods%20and%20User%20Scripts/Bulk%20Copy%20Announcements
-// @version      2.1.0
+// @version      3.0.0
 // @description  Adds ability to bulk copy announcements
 // @author       James Sekcienski, Ed Tech Systems, Wilmington University
 // @match      https://*.instructure.com/courses/*/announcements
@@ -346,7 +346,7 @@
       }),
     ];
 
-    return [...selectedAnnouncementIds.filter((id) => id != "error")].reverse();
+    return [...selectedAnnouncementIds.filter((id) => id != "error")];
   }
 
   /**
@@ -481,7 +481,8 @@
     const announcementSettingsSection = document.createElement("section");
     const announcementSettingsHeading = document.createElement("h3");
     announcementSettingsHeading.innerText = "Copied Announcement Settings";
-    const announcementSettingControls = createAnnouncementSettingControls();
+    const announcementSettingControls =
+      createAnnouncementSettingControls(announcements);
     announcementSettingsSection.append(announcementSettingsHeading);
     announcementSettingsSection.append(announcementSettingControls);
     bodyWrapper.append(announcementSettingControls);
@@ -517,7 +518,7 @@
     return bodyWrapper;
   }
 
-  function createAnnouncementSettingControls() {
+  function createAnnouncementSettingControls(announcements) {
     const settingsWrapper = document.createElement("div");
 
     const studentCommentingWrapper = document.createElement("div");
@@ -577,17 +578,9 @@
     const delayedPostingTimeWrapper = document.createElement("div");
     delayedPostingTimeWrapper.style.marginLeft = "2em";
     delayedPostingTimeWrapper.id = "wu-delayed-posting-entry";
-    delayedPostingTimeWrapper.classList.add("ic-Form-control");
-    const delayedPostingTimeInput = document.createElement("input");
-    delayedPostingTimeInput.type = "datetime-local";
-    delayedPostingTimeInput.id = "wu-delayed-posting-date-time";
-    delayedPostingTimeInput.min = getMinDateTimeString();
-    const delayedPostingTimeLabel = document.createElement("label");
-    delayedPostingTimeLabel.classList.add("ic-Label");
-    delayedPostingTimeLabel.innerText = "Delay Posting Until: ";
-    delayedPostingTimeLabel.setAttribute("for", "wu-delayed-posting-date-time");
-    delayedPostingTimeWrapper.append(delayedPostingTimeLabel);
-    delayedPostingTimeWrapper.append(delayedPostingTimeInput);
+    delayedPostingTimeWrapper.append(
+      createDelayedTimeInputsTable(announcements)
+    );
     settingsWrapper.append(delayedPostingTimeWrapper);
 
     studentCommentingCheckbox.addEventListener("click", () => {
@@ -607,6 +600,72 @@
     });
 
     return settingsWrapper;
+  }
+
+  function createDelayedTimeInputsTable(announcements) {
+    const tableWrapper = document.createElement("div");
+    tableWrapper.style.overflow = "auto";
+    tableWrapper.style.maxHeight = "300px";
+    tableWrapper.style.marginBottom = "1rem";
+    tableWrapper.style.borderTop = `1px solid ${headerBorderColor}`;
+    tableWrapper.style.borderBottom = `1px solid ${headerBorderColor}`;
+
+    const table = document.createElement("table");
+    table.classList.add("ic-Table", "ic-Table--hover-row", "ic-Table--striped");
+    table.id = "wu-selected-announcements";
+
+    const thead = document.createElement("thead");
+    const headerRow = document.createElement("tr");
+    headerRow.insertAdjacentHTML(
+      "beforeend",
+      `
+        <th style="background-color: ${headerBackgroundColor}; color: ${headerFontColor}; position: sticky; top: 0px; border-bottom: 1px solid ${headerBorderColor};">Title</th>
+        <th style="background-color: ${headerBackgroundColor}; color: ${headerFontColor}; position: sticky; top: 0px; border-bottom: 1px solid ${headerBorderColor}; z-index: 99;">Delayed Post Date/Time</th>
+      `
+    );
+    thead.append(headerRow);
+
+    const tbody = document.createElement("tbody");
+    for (const announcement of announcements) {
+      const row = createDelayedPostingTimeRow(announcement);
+      tbody.append(row);
+    }
+
+    table.append(thead);
+    table.append(tbody);
+
+    tableWrapper.append(table);
+
+    return tableWrapper;
+  }
+
+  function createDelayedPostingTimeRow(announcement) {
+    const row = document.createElement("tr");
+    const titleTd = document.createElement("td");
+    titleTd.innerText = announcement?.title;
+
+    const delayedPostingInputTd = document.createElement("td");
+    const delayedPostingInputWrapper = document.createElement("div");
+    delayedPostingInputWrapper.classList.add("ic-Form-control");
+    const delayedPostingTimeInput = document.createElement("input");
+    delayedPostingTimeInput.type = "datetime-local";
+    delayedPostingTimeInput.id = `wu-delayed-posting-date-time-for-${announcement.id}`;
+    delayedPostingTimeInput.classList.add("wu-delayed-posting-date-time-input");
+    delayedPostingTimeInput.min = getMinDateTimeString();
+    const delayedPostingTimeLabel = document.createElement("label");
+    delayedPostingTimeLabel.classList.add("ic-Label", "screenreader-only");
+    delayedPostingTimeLabel.innerText = "Delay Posting Until: ";
+    delayedPostingTimeLabel.setAttribute(
+      "for",
+      `wu-delayed-posting-date-time-for-${announcement.id}`
+    );
+    delayedPostingInputWrapper.append(delayedPostingTimeLabel);
+    delayedPostingInputWrapper.append(delayedPostingTimeInput);
+    delayedPostingInputTd.append(delayedPostingInputWrapper);
+
+    row.append(titleTd);
+    row.append(delayedPostingInputTd);
+    return row;
   }
 
   function createFixingBrokenEmbedsDetails() {
@@ -710,37 +769,36 @@
   }
 
   function validateCopySettings() {
-    const isDelayedPosting = document.getElementById("wu-is-delayed-posting");
-    const delayedPostingInput = document.getElementById(
-      "wu-delayed-posting-date-time"
-    );
-    const delayedPostingDateTime = isDelayedPosting.checked
-      ? delayedPostingInput.value
-      : "";
-
-    const minDateTime = getMinDateTimeString();
-
+    // Ensure a course is selected to copy to
     if (!document.querySelector("input.wu-copy-to-course:checked")) {
       alert(
         "You need to select a course to copy to where you are an active teacher."
       );
       return false;
-    } else if (
-      isDelayedPosting &&
-      isDelayedPosting.checked &&
-      !delayedPostingDateTime
-    ) {
-      alert(
-        "Need to enter a delayed posting time or uncheck option to delay posting."
-      );
-      return false;
-    } else if (
-      isDelayedPosting &&
-      isDelayedPosting.checked &&
-      delayedPostingDateTime < minDateTime
-    ) {
-      alert("The delayed posting date/time needs to be in the future");
-      return false;
+    }
+
+    const isDelayedPosting = document.getElementById("wu-is-delayed-posting");
+    // Ensure valid delayed posting times are entered if selected to delay posts
+    if (isDelayedPosting && isDelayedPosting.checked) {
+      const delayedPostingInputs = [
+        ...document.querySelectorAll(
+          "input.wu-delayed-posting-date-time-input"
+        ),
+      ];
+      const minDateTime = getMinDateTimeString();
+      // Handle when there is a blank delayed post date/time
+      if (delayedPostingInputs.some((input) => !(input?.value ?? ""))) {
+        alert(
+          "Need to enter delayed posting date/time for each announcement or uncheck option to delay posting."
+        );
+        return false;
+      }
+
+      // Handle when there is a delayed post date/time that isn't in the future
+      if (delayedPostingInputs.some((input) => input.value < minDateTime)) {
+        alert("Delayed posting date/time needs to be in the future");
+        return false;
+      }
     }
 
     return true;
@@ -759,19 +817,21 @@
       : false;
 
     const isDelayedPosting = document.getElementById("wu-is-delayed-posting");
-    const delayedPostingInput = document.getElementById(
-      "wu-delayed-posting-date-time"
-    );
-    const delayedPostingDateTime = isDelayedPosting.checked
-      ? delayedPostingInput.value
-        ? new Date(delayedPostingInput.value).toISOString()
-        : ""
-      : "";
+    const delayedPostingInputs = [
+      ...document.querySelectorAll("input.wu-delayed-posting-date-time-input"),
+    ];
+    const delayedPostingDateTimes = {};
+    for (const input of delayedPostingInputs) {
+      const inputId = input?.id ?? "";
+      const announcementId = inputId.split("-").pop() ?? "";
+      delayedPostingDateTimes[announcementId] = input?.value ?? "";
+    }
 
     return {
       isCommentingAllowed: isCommentingAllowed,
       isInitialPostRequired: isInitialPostRequired,
-      delayedPostingDateTime: delayedPostingDateTime,
+      isDelayedPosting: isDelayedPosting,
+      delayedPostingDateTimes: delayedPostingDateTimes,
     };
   }
 
@@ -1351,9 +1411,16 @@
     updatedMessage,
     announcementSettings
   ) {
-    const delayedPostingDateTime = announcementSettings?.delayedPostingDateTime;
     const isCommentingAllowed = announcementSettings?.isCommentingAllowed;
     const isInitialPostRequired = announcementSettings?.isInitialPostRequired;
+    const isDelayedPosting = announcementSettings?.isDelayedPosting;
+    const delayedPostingDateTimes =
+      announcementSettings?.delayedPostingDateTimes;
+    const delayedPostingDateTime = delayedPostingDateTimes.hasOwnProperty(
+      `${announcement.id}`
+    )
+      ? delayedPostingDateTimes[`${announcement.id}`]
+      : "";
 
     const data = {
       title: announcement.title,
@@ -1375,7 +1442,7 @@
       data.locked = true;
     }
 
-    if (delayedPostingDateTime) {
+    if (isDelayedPosting && delayedPostingDateTime) {
       data.delayed_post_at = delayedPostingDateTime;
     }
 
@@ -1583,6 +1650,32 @@
       );
     });
     await Promise.all(fetches);
+
+    // Sort so the newest posted announcement (or future posted announcement) is first and the oldest post is last
+    announcements.sort((curr, next) => {
+      const currDelayed = curr?.delayed_post_at ?? "";
+      const nextDelayed = next?.delayed_post_at ?? "";
+      const currCreated = curr?.created_at ?? "";
+      const nextCreated = next?.created_at ?? "";
+
+      if (
+        (!currDelayed && nextDelayed) ||
+        (nextDelayed && nextDelayed > currDelayed) ||
+        (!currDelayed && !nextDelayed && nextCreated > currCreated)
+      ) {
+        return 1;
+      }
+
+      if (
+        (currDelayed && !nextDelayed) ||
+        (currDelayed && nextDelayed < currDelayed) ||
+        (!currDelayed && !nextDelayed && nextCreated < currCreated)
+      ) {
+        return -1;
+      }
+
+      return 0;
+    });
 
     return announcements;
   }
