@@ -6,7 +6,7 @@ Documentation for how our teachers can use this feature can be found at [Copy An
 
 ## Notes for Users
 
-- The setting options that are shown will apply to all selected announcements for copies. If you don't want the announcements to post immediately and potentially send notifications, be sure to set a delayed post date/time. For now, if different date/times are needed you will need to copy the announcements one at a time or copy them in bulk and then edit the date/time for the copied that should be different.
+- The setting options that are shown will apply to all selected announcements for copies. If you don't want the announcements to post immediately and potentially send notifications, be sure to set a delayed post date/time. v3.0.0 added the ability to set the delayed post date/time for each announcement.
 - There are some variables towards the beginning of the code that are used to configure some styles/naming conventions. You can update these as desired, but it isn't required.
 - Only courses where you are an active Teacher will show. This is also because the announcements will show the person making the copies as the author of the announcements.
 - The special copy process for handling embedded LTI content that uses the new standard, requires permission to create and delete pages so it can get the LTI content associated with the destination course too using a native copy process. A page is temporarily used for this instead of an announcement to avoid a notification potentially being sent.
