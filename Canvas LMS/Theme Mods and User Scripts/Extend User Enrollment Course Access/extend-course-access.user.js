@@ -10,6 +10,14 @@
 "use strict";
 
 (async () => {
+  // CONFIGS
+  const headerBackgroundColor = "var(--ic-brand-primary)";
+  const headerBorderColor = "#c7cdd1";
+  const headerFontColor = "var(--ic-brand-button--primary-text)";
+  const footerBackgroundColor = "#f5f5f5";
+  const footerBorderColor = "#c7cdd1";
+  const footerFontColor = "inherit";
+
   if (
     /^\/courses\/[0-9]+\/users\/[0-9]+\??[^\/]*\/?$/.test(
       window.location.pathname
@@ -21,6 +29,8 @@
     if (!hasRequiredPermissions) {
       return;
     }
+
+    addCustomStyleRules();
 
     const courseId = window.location.pathname.split("/")[2];
     const course = await getCourseDetails(courseId);
@@ -60,6 +70,68 @@
       permissions?.add_observer_to_course &&
       permissions?.add_student_to_course
     );
+  }
+
+  function addCustomStyleRules() {
+    const customStyleRules = `
+    <style>
+      /* Dialog Styles */
+      .wu-dialog {
+        min-width: 50vw;
+        min-height: 30vh;
+        max-height: 90vh;
+        padding: 0;
+        resize: both;
+        overflow: hidden;
+        border: 2px solid rgb(193 193 193);
+        box-shadow: rgba(0, 0, 0, 0.1) 0px 0.375rem 0.4375rem,
+          rgba(0, 0, 0, 0.25) 0px 0.625rem 1.75rem;
+        border-radius: 5px;
+      }
+
+      .wu-dialog-content-wrapper {
+        padding: 0;
+        height: 100%;
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .wu-dialog-header {
+        display: flex;
+        justify-content: space-between;
+        background-color: ${headerBackgroundColor};
+        color: ${headerFontColor};
+        border-bottom: 2px solid ${headerBorderColor};
+        padding: 0.75rem;
+        box-sizing: border-box;
+      }
+
+      .wu-dialog-header button.wu-dialog-close {
+        padding: 0.25rem 1rem;
+        color: ${headerFontColor};
+      }
+
+      .wu-dialog-header button.wu-dialog-close:focus,
+      .wu-dialog-header button.wu-dialog-close:hover {
+        box-shadow: inset 0 0 0 2px ${headerBorderColor};
+      }
+
+      .wu-dialog-body {
+        padding: 1rem;
+        overflow: auto;
+        flex: 1 1 auto;
+      }
+
+      .wu-dialog-footer {
+        padding: 2px 16px;
+        background-color: ${footerBackgroundColor};
+        color: ${footerFontColor};
+        border-top: 1px solid ${footerBorderColor};
+      }
+    </style>
+    `;
+    document.head.insertAdjacentHTML("beforeend", customStyleRules);
   }
 
   async function getCourseDetails(courseId) {
@@ -211,7 +283,7 @@
     dialog.id = "wu-set-end-date-dialog";
     dialog.classList.add("wu-dialog");
     dialog.style.width = "70vw";
-    dialog.style.height = "50vh";
+    dialog.style.height = "60vh";
 
     const dialogContentWrapper = document.createElement("div");
     dialogContentWrapper.classList.add("wu-dialog-content-wrapper");
