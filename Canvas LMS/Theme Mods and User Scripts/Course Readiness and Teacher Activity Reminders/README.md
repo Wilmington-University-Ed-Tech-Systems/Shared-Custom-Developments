@@ -8,6 +8,8 @@ HEADING_FOR_CHECKLIST is the heading that will appear above the checklist that a
 
 expectations is the array of Expectation objects that are used to evaluate course readiness. This is currently only designed to support one collection of Expectations, but you can configure the startAt and endAt of an Expectation if it should only be active at a certain time in relation to course start and course end. All expectations that are active will be checked and an updated message will be added to the checklist. Alerts will appear at the top of the course home page for unmet expectations with additional details about what is wrong and the necessary action to fix.
 
+isAuditedTerm function is currently defined to check that the term of the course has a name that includes "Fall", "Spring", or "Summer". This check can be removed to apply to all terms, or you can adjust this function to fit your needs to determine if the term should be checked.
+
 ### Current Types of Expectations Available
 
 #### SyllabusExpectation
